@@ -11,11 +11,9 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="BaseApplication.cpp" />
     <ClCompile Include="TutorialApplication.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="BaseApplication.h" />
     <ClInclude Include="TutorialApplication.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

@@ -16,156 +16,186 @@ http://www.ogre3d.org/wiki/
 */
 
 #include "TutorialApplication.h"
+#include <OgreConfigFile.h>
+#include <OgreSceneManager.h>
+#include "OgreRenderWindow.h"
+#include <OgreCamera.h>
+#include "OgreViewport.h"
+#include <OgreEntity.h>
+#include <OgreWindowEventUtilities.h>
+
 
 //---------------------------------------------------------------------------
-TutorialApplication::TutorialApplication(void)
-	: mDirection(Ogre::Vector3::ZERO)
+TutorialApplication::TutorialApplication()
+	: mRoot(0),
+	mResourcesCfg(Ogre::StringUtil::BLANK),
+	mPluginsCfg(Ogre::StringUtil::BLANK),
+	mSceneMgr(0),
+	mCamera(0),
+	mWindow(0)
 {
 }
-//---------------------------------------------------------------------------
-TutorialApplication::~TutorialApplication(void)
+
+TutorialApplication::~TutorialApplication()
 {
+
+	//Remove ourself as a Window listener
+	Ogre::WindowEventUtilities::removeWindowEventListener(mWindow, this);
+	windowClosed(mWindow);
+	delete mRoot;
 }
 
-//---------------------------------------------------------------------------
-void TutorialApplication::createScene(void)
+// Initialise the Ogre3D rendering system
+bool TutorialApplication::go()
 {
-	//// Create your scene here :)
-	mSceneMgr->setAmbientLight(Ogre::ColourValue(0, 0, 0));
-	mSceneMgr->setShadowTechnique(Ogre::SHADOWTYPE_STENCIL_ADDITIVE);
-	//mSceneMgr->setSkyBox(true, "Examples/SpaceSkyBox", 1000);
-	mSceneMgr->setSkyDome(true, "Examples/CloudySky", 5, 8);
+#ifdef _DEBUG
+	mResourcesCfg = "resources_d.cfg";
+	mPluginsCfg = "plugins_d.cfg";
+#else
+	mResourcesCfg = "resources.cfg";
+	mPluginsCfg = "plugins.cfg";
+#endif
 
-	Ogre::ColourValue fadeColour(0.9, 0.9, 0.9);	
-	mWindow->getViewport(0)->setBackgroundColour(fadeColour);
-	mSceneMgr->setFog(Ogre::FOG_EXP, fadeColour, 0.002);
+	mRoot = new Ogre::Root(mPluginsCfg);
 
-	//Ogre::Entity* ogreEntity = mSceneMgr->createEntity("ogrehead.mesh");
+	Ogre::ConfigFile cf;
+	cf.load(mResourcesCfg);
 
-	//Ogre::SceneNode* ogreNode = mSceneMgr->getRootSceneNode()->createChildSceneNode();
+	Ogre::String name, locType;
 
-	//ogreNode->attachObject(ogreEntity);
+	Ogre::ConfigFile::SectionIterator secIt = cf.getSectionIterator();
 
-	//Ogre::Entity* ogreEntity2 = mSceneMgr->createEntity("ogrehead.mesh");
+	while (secIt.hasMoreElements())
+	{
+		Ogre::ConfigFile::SettingsMultiMap* settings = secIt.getNext();
+		Ogre::ConfigFile::SettingsMultiMap::iterator it;
+		for (it = settings->begin(); it != settings->end(); ++it)
+		{
+			locType = it->first;
+			name = it->second;
+			Ogre::ResourceGroupManager::getSingleton().addResourceLocation(name, locType);
+		}
+	}
 
-	//Ogre::SceneNode* ogreNode2 = mSceneMgr->getRootSceneNode()->createChildSceneNode(
-	//	Ogre::Vector3(84, 48, 0));
-	//ogreNode2->attachObject(ogreEntity2);
+	if(!(mRoot->restoreConfig() || mRoot->showConfigDialog()))
+		return false;
 
+	mWindow = mRoot->initialise(true, "TutorialApplication Render Window");
 
-	//Ogre::Light* light = mSceneMgr->createLight("MainLight");
+	Ogre::TextureManager::getSingleton().setDefaultNumMipmaps(5);
 
-	//light->setPosition(20, 80, 50);
+	Ogre::ResourceGroupManager::getSingleton().initialiseAllResourceGroups();
 
-	Ogre::Entity* ninjaEntity = mSceneMgr->createEntity("ninja.mesh");
-	ninjaEntity->setCastShadows(true);
+	// Create and Initialise the scene
+	createScene();
 
-	mSceneMgr->getRootSceneNode()->createChildSceneNode()->attachObject(ninjaEntity);
+	// Initialise OIS
+	initInput();
 
-	Ogre::Plane plane(Ogre::Vector3::UNIT_Y, 0);
+	//Register as a Window listener
+	Ogre::WindowEventUtilities::addWindowEventListener(mWindow, this);
 
-	Ogre::MeshManager::getSingleton().createPlane(
-		"ground",
-		Ogre::ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME,
-		plane, 
-		2000, 2000, 20, 20, 
-		true, 
-		1, 5, 5, 
-		Ogre::Vector3::UNIT_Z);
+	mRoot->addFrameListener(this);
 
-	Ogre::Entity* groundEntity = mSceneMgr->createEntity("ground");
-	mSceneMgr->getRootSceneNode()->createChildSceneNode()->attachObject(groundEntity);
+	mRoot->startRendering();
 
-	groundEntity->setCastShadows(false);
-
-	groundEntity->setMaterialName("Examples/Rockwall");
-
-	//Ogre::Light* spotLight = mSceneMgr->createLight("SpotLight");
-
-	//spotLight->setDiffuseColour(0, 0, 1.0);
-	//spotLight->setSpecularColour(0, 0, 1.0);
-
-	//spotLight->setType(Ogre::Light::LT_SPOTLIGHT);
-	//spotLight->setDirection(-1, -1, 0);
-	//spotLight->setPosition(Ogre::Vector3(200, 200, 0));
-
-	//spotLight->setSpotlightRange(Ogre::Degree(35), Ogre::Degree(50));
-
-	Ogre::Light* directionalLight = mSceneMgr->createLight("DirectionalLight");
-	directionalLight->setType(Ogre::Light::LT_DIRECTIONAL);
-
-	directionalLight->setDiffuseColour(Ogre::ColourValue(.6, .6, .6));
-	directionalLight->setSpecularColour(Ogre::ColourValue(.6, .6, .6));
-
-	directionalLight->setDirection(Ogre::Vector3(0, -1, 1));
-
+	return true;
 }
 
-void TutorialApplication::createCamera()
+//Adjust mouse clipping area
+void TutorialApplication::windowResized(Ogre::RenderWindow* rw)
 {
-	mCamera = mSceneMgr->createCamera("PlayerCam");
+	unsigned int width, height, depth;
+	int left, top;
+	rw->getMetrics(width, height, depth, left, top);
 
-	mCamera->setPosition(Ogre::Vector3(0, 300, 500));
-	mCamera->lookAt(Ogre::Vector3(0, 0, 0));
+	const OIS::MouseState &ms = mMouse->getMouseState();
+	ms.width = width;
+	ms.height = height;
+}
 
+//Unattach OIS before window shutdown (very important under Linux)
+void TutorialApplication::windowClosed(Ogre::RenderWindow* rw)
+{
+	//Only close for window that created OIS (the main window in these demos)
+	if(rw == mWindow)
+	{
+		if(mInputManager)
+		{
+			mInputManager->destroyInputObject( mMouse );
+			mInputManager->destroyInputObject( mKeyboard );
+
+			OIS::InputManager::destroyInputSystem(mInputManager);
+			mInputManager = 0;
+		}
+	}
+}
+
+bool TutorialApplication::frameRenderingQueued(const Ogre::FrameEvent& evt)
+{
+	if(mWindow->isClosed())
+		return false;
+
+	//Need to capture/update each device
+	mKeyboard->capture();
+	mMouse->capture();
+
+	if(mKeyboard->isKeyDown(OIS::KC_ESCAPE))
+		return false;
+
+	return true;
+}
+
+void 
+	TutorialApplication::createScene()
+{
+	mSceneMgr = mRoot->createSceneManager(Ogre::ST_GENERIC);
+
+	mCamera = mSceneMgr->createCamera("MainCam");
+
+	mCamera->setPosition(0, 0, 80);
+	mCamera->lookAt(0, 0, -300);
 	mCamera->setNearClipDistance(5);
 
-	mCameraMan = new OgreBites::SdkCameraMan(mCamera);
-}
-
-void TutorialApplication::createViewports()
-{
 	Ogre::Viewport* vp = mWindow->addViewport(mCamera);
-	vp->setBackgroundColour(Ogre::ColourValue(0, 0, 0));
+
+	vp->setBackgroundColour(Ogre::ColourValue(0,0,0));
 
 	mCamera->setAspectRatio(
-		Ogre::Real(vp->getActualWidth()) /
+		Ogre::Real(vp->getActualWidth()) / 
 		Ogre::Real(vp->getActualHeight()));
+
+	Ogre::Entity* ogreEntity = mSceneMgr->createEntity("ogrehead.mesh");
+
+	Ogre::SceneNode* ogreNode = mSceneMgr->getRootSceneNode()->createChildSceneNode();
+	ogreNode->attachObject(ogreEntity);
+
+	mSceneMgr->setAmbientLight(Ogre::ColourValue(.5, .5, .5));
+
+	Ogre::Light* light = mSceneMgr->createLight("MainLight");
+	light->setPosition(20, 80, 50);
 }
 
-bool TutorialApplication::frameRenderingQueued(const Ogre::FrameEvent& fe)
+void 
+	TutorialApplication::initInput()
 {
-	bool ret = BaseApplication::frameRenderingQueued(fe);
+	Ogre::LogManager::getSingletonPtr()->logMessage("*** Initializing OIS ***");
+	OIS::ParamList pl;
+	size_t windowHnd = 0;
+	std::ostringstream windowHndStr;
 
-	return ret;
+	mWindow->getCustomAttribute("WINDOW", &windowHnd);
+	windowHndStr << windowHnd;
+	pl.insert(std::make_pair(std::string("WINDOW"), windowHndStr.str()));
+
+	mInputManager = OIS::InputManager::createInputSystem( pl );
+
+	mKeyboard = static_cast<OIS::Keyboard*>(mInputManager->createInputObject( OIS::OISKeyboard, false ));
+	mMouse = static_cast<OIS::Mouse*>(mInputManager->createInputObject( OIS::OISMouse, false ));
+
+	//Set initial mouse clipping size
+	windowResized(mWindow);
 }
-
-bool TutorialApplication::mouseMoved(const OIS::MouseEvent& me) 
-{ 
-	return true; 
-}
-
-bool TutorialApplication::mousePressed(
-	const OIS::MouseEvent& me, OIS::MouseButtonID id) 
-{ 
-	return true; 
-}
-
-bool TutorialApplication::mouseReleased(
-	const OIS::MouseEvent& me, OIS::MouseButtonID id) 
-{ 
-	return true; 
-}
-
-bool TutorialApplication::keyPressed(const OIS::KeyEvent& ke) 
-{ 
-	switch (ke.key)
-	{
-	case OIS::KC_ESCAPE: 
-		mShutDown = true;
-		break;
-	default:
-		break;
-	}
-	return true; 
-}
-
-bool TutorialApplication::keyReleased(const OIS::KeyEvent& ke) 
-{ 
-	return true; 
-}
-
-
 
 //---------------------------------------------------------------------------
 

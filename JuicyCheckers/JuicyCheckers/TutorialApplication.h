@@ -18,35 +18,48 @@ http://www.ogre3d.org/wiki/
 #ifndef __TutorialApplication_h_
 #define __TutorialApplication_h_
 
-#include "BaseApplication.h"
+#include <OgreRoot.h>
+#include <OISEvents.h>
+#include <OISInputManager.h>
+#include <OISKeyboard.h>
+#include <OISMouse.h>
+#include <OgreWindowEventUtilities.h>
 
 //---------------------------------------------------------------------------
 
-class TutorialApplication : public BaseApplication
+class TutorialApplication : public Ogre::WindowEventListener, public Ogre::FrameListener
 {
 public:
 	TutorialApplication(void);
 	virtual ~TutorialApplication(void);
+	bool go();
 
 protected:
-	virtual void createScene(void);
+	// Ogre::WindowEventListener
+	virtual void windowResized(Ogre::RenderWindow* rw);
+	virtual void windowClosed(Ogre::RenderWindow* rw);
 
-	virtual void createCamera();
-	virtual void createViewports();
+	// Ogre::FrameListener
+	virtual bool frameRenderingQueued(const Ogre::FrameEvent& evt);
 
-	virtual bool frameRenderingQueued(const Ogre::FrameEvent& fe);
-
-
-	// Callback functions for the mouse and keyboard listners
-	virtual bool mouseMoved(const OIS::MouseEvent& me);
-	virtual bool mousePressed(const OIS::MouseEvent& me, OIS::MouseButtonID id);
-	virtual bool mouseReleased(const OIS::MouseEvent& me, OIS::MouseButtonID id);
-	virtual bool keyPressed(const OIS::KeyEvent& ke);
-	virtual bool keyReleased(const OIS::KeyEvent& ke);
+	// Methods for initialising the game
+	void createScene();
+	void initInput();
 
 private:
+	Ogre::Root* mRoot;
+	Ogre::String mResourcesCfg;
+	Ogre::String mPluginsCfg;
 
-	Ogre::Vector3 mDirection;
+	Ogre::RenderWindow* mWindow;
+
+	Ogre::SceneManager* mSceneMgr;
+	Ogre::Camera* mCamera;
+
+	// Member variables for the OIS input
+	OIS::InputManager* mInputManager;
+	OIS::Mouse* mMouse;
+	OIS::Keyboard* mKeyboard;
 
 };
 
