@@ -11,10 +11,10 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="TutorialApplication.cpp" />
+    <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="TutorialApplication.h" />
+    <ClInclude Include="main.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{7B88240D-1B72-4D9B-AFFB-3C30CFD74BB0}</ProjectGuid>
