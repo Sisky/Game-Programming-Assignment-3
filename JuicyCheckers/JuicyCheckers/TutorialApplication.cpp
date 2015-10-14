@@ -23,6 +23,7 @@ http://www.ogre3d.org/wiki/
 #include "OgreViewport.h"
 #include <OgreEntity.h>
 #include <OgreWindowEventUtilities.h>
+#include <OgreMeshManager.h>
 
 
 //---------------------------------------------------------------------------
@@ -32,7 +33,10 @@ TutorialApplication::TutorialApplication()
 	mPluginsCfg(Ogre::StringUtil::BLANK),
 	mSceneMgr(0),
 	mCamera(0),
-	mWindow(0)
+	mWindow(0),
+	currentDegree(0.0f),
+	maxDegree(180.0f),
+	minDegree(-180.0f)
 {
 }
 
@@ -42,6 +46,7 @@ TutorialApplication::~TutorialApplication()
 	//Remove ourself as a Window listener
 	Ogre::WindowEventUtilities::removeWindowEventListener(mWindow, this);
 	windowClosed(mWindow);
+
 	delete mRoot;
 }
 
@@ -77,8 +82,10 @@ bool TutorialApplication::go()
 		}
 	}
 
-	if(!(mRoot->restoreConfig() || mRoot->showConfigDialog()))
-		return false;
+	///if(!(mRoot->restoreConfig() || mRoot->showConfigDialog()))
+	//	return false;
+	mRoot->showConfigDialog();
+
 
 	mWindow = mRoot->initialise(true, "TutorialApplication Render Window");
 
@@ -140,10 +147,70 @@ bool TutorialApplication::frameRenderingQueued(const Ogre::FrameEvent& evt)
 	mKeyboard->capture();
 	mMouse->capture();
 
+	//processInput(evt);
+
 	if(mKeyboard->isKeyDown(OIS::KC_ESCAPE))
 		return false;
 
 	return true;
+}
+
+
+// Input Processing Methods
+bool TutorialApplication::keyPressed(const OIS::KeyEvent& ke) 
+{ 
+	return true; 
+}
+
+bool TutorialApplication::keyReleased(const OIS::KeyEvent& ke) 
+{ 
+	return true; 
+}
+
+bool TutorialApplication::mouseMoved(const OIS::MouseEvent& me) 
+{ 
+	// Move the camera around an origin point if the user is holding the right mouse button
+	if(me.state.buttonDown(OIS::MB_Right))
+	{
+		int relativeX = me.state.X.rel;
+		int relativeY = me.state.Y.rel;
+		int relativeZ = me.state.Z.rel;
+
+		Ogre::SceneNode* positionNode = mSceneMgr->getSceneNode("CAMERA_POSITION");
+		Ogre::Vector3 pos = positionNode->getPosition();
+
+		Ogre::Vector3 origin = Ogre::Vector3(0,0,0);
+		Ogre::Vector3 scale = origin - pos;
+		scale.normalise();
+		
+		
+		//if(pos.z > 50.0f)
+		//{
+			positionNode->setPosition(pos+(scale*relativeZ));
+		//}
+
+		//currentDegree += ;
+
+		if(currentDegree > maxDegree){ currentDegree = maxDegree; }
+		if(currentDegree < minDegree){ currentDegree = minDegree; }
+
+		Ogre::SceneNode* rotationNode = mSceneMgr->getSceneNode("CAMERA_ROTATION");
+		rotationNode->rotate(Ogre::Quaternion(Ogre::Degree(relativeX*0.1f), Ogre::Vector3(0,1,0)) , Ogre::Node::TransformSpace::TS_WORLD);
+		rotationNode->rotate(Ogre::Quaternion(Ogre::Degree(relativeY*0.1f), Ogre::Vector3(1,0,0)) , Ogre::Node::TransformSpace::TS_LOCAL);
+	}
+	return true; 
+}
+
+bool TutorialApplication::mousePressed(
+	const OIS::MouseEvent& me, OIS::MouseButtonID id) 
+{ 
+	return true; 
+}
+
+bool TutorialApplication::mouseReleased(
+	const OIS::MouseEvent& me, OIS::MouseButtonID id) 
+{ 
+	return true; 
 }
 
 void 
@@ -153,9 +220,19 @@ void
 
 	mCamera = mSceneMgr->createCamera("MainCam");
 
-	mCamera->setPosition(0, 0, 80);
-	mCamera->lookAt(0, 0, -300);
+	//mCamera->setPosition(Ogre::Vector3(0, 300, -500));
+	// We want to create a scene node that we can rotate the camera around at the origin
+	Ogre::SceneNode* cameraParent = mSceneMgr->getRootSceneNode()->createChildSceneNode("CAMERA_ROTATION");;
+	Ogre::SceneNode* cameraChild = cameraParent->createChildSceneNode("CAMERA_POSITION");
+
+	cameraChild->attachObject(mCamera);
+	cameraChild->translate(10, 300,-500);
+
+
+	mCamera->lookAt(Ogre::Vector3(0, 0, 0));
 	mCamera->setNearClipDistance(5);
+	
+
 
 	Ogre::Viewport* vp = mWindow->addViewport(mCamera);
 
@@ -165,15 +242,44 @@ void
 		Ogre::Real(vp->getActualWidth()) / 
 		Ogre::Real(vp->getActualHeight()));
 
-	Ogre::Entity* ogreEntity = mSceneMgr->createEntity("ogrehead.mesh");
+	mSceneMgr->setAmbientLight(Ogre::ColourValue(0, 0, 0));
+	mSceneMgr->setShadowTechnique(Ogre::SHADOWTYPE_STENCIL_ADDITIVE);
 
-	Ogre::SceneNode* ogreNode = mSceneMgr->getRootSceneNode()->createChildSceneNode();
-	ogreNode->attachObject(ogreEntity);
+	//Ogre::Entity* ogreEntity = mSceneMgr->createEntity("ogrehead.mesh");
 
-	mSceneMgr->setAmbientLight(Ogre::ColourValue(.5, .5, .5));
+	//Ogre::SceneNode* ogreNode = mSceneMgr->getRootSceneNode()->createChildSceneNode();
+	//ogreNode->attachObject(ogreEntity);
 
-	Ogre::Light* light = mSceneMgr->createLight("MainLight");
-	light->setPosition(20, 80, 50);
+	Ogre::Entity* ninjaEntity = mSceneMgr->createEntity("ninja.mesh");
+	ninjaEntity->setCastShadows(true);
+
+	Ogre::Plane plane(Ogre::Vector3::UNIT_Y, 0);
+
+	Ogre::MeshManager::getSingleton().createPlane(
+		"ground",
+		Ogre::ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME,
+		plane, 
+		1500, 1500, 20, 20, 
+		true, 
+		1, 5, 5, 
+		Ogre::Vector3::UNIT_Z);
+
+	Ogre::Entity* groundEntity = mSceneMgr->createEntity("ground");
+	mSceneMgr->getRootSceneNode()->createChildSceneNode()->attachObject(groundEntity);
+
+	groundEntity->setCastShadows(false);
+
+	groundEntity->setMaterialName("Examples/Rockwall");
+
+	mSceneMgr->getRootSceneNode()->createChildSceneNode()->attachObject(ninjaEntity);
+
+	Ogre::Light* directionalLight = mSceneMgr->createLight("DirectionalLight");
+	directionalLight->setType(Ogre::Light::LT_DIRECTIONAL);
+
+	directionalLight->setDiffuseColour(Ogre::ColourValue(.8, .8, .8));
+	directionalLight->setSpecularColour(Ogre::ColourValue(.8, .8, .8));
+
+	directionalLight->setDirection(Ogre::Vector3(0, -1, 1));
 }
 
 void 
@@ -190,8 +296,11 @@ void
 
 	mInputManager = OIS::InputManager::createInputSystem( pl );
 
-	mKeyboard = static_cast<OIS::Keyboard*>(mInputManager->createInputObject( OIS::OISKeyboard, false ));
-	mMouse = static_cast<OIS::Mouse*>(mInputManager->createInputObject( OIS::OISMouse, false ));
+	mKeyboard = static_cast<OIS::Keyboard*>(mInputManager->createInputObject( OIS::OISKeyboard, true ));
+	mMouse = static_cast<OIS::Mouse*>(mInputManager->createInputObject( OIS::OISMouse, true ));
+
+	mMouse->setEventCallback(this);
+mKeyboard->setEventCallback(this);
 
 	//Set initial mouse clipping size
 	windowResized(mWindow);

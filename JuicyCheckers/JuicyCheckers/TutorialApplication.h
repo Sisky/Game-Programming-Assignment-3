@@ -24,10 +24,11 @@ http://www.ogre3d.org/wiki/
 #include <OISKeyboard.h>
 #include <OISMouse.h>
 #include <OgreWindowEventUtilities.h>
+#include <SdkCameraMan.h>
 
 //---------------------------------------------------------------------------
 
-class TutorialApplication : public Ogre::WindowEventListener, public Ogre::FrameListener
+class TutorialApplication : public Ogre::WindowEventListener, public Ogre::FrameListener, public OIS::KeyListener, public OIS::MouseListener
 {
 public:
 	TutorialApplication(void);
@@ -46,6 +47,15 @@ protected:
 	void createScene();
 	void initInput();
 
+	
+
+	// Process BufferedInput
+virtual bool keyPressed(const OIS::KeyEvent& ke);
+virtual bool keyReleased(const OIS::KeyEvent& ke);
+virtual bool mouseMoved(const OIS::MouseEvent& me);
+virtual bool mousePressed(const OIS::MouseEvent& me, OIS::MouseButtonID id);
+virtual bool mouseReleased(const OIS::MouseEvent& me, OIS::MouseButtonID id);
+
 private:
 	Ogre::Root* mRoot;
 	Ogre::String mResourcesCfg;
@@ -60,6 +70,11 @@ private:
 	OIS::InputManager* mInputManager;
 	OIS::Mouse* mMouse;
 	OIS::Keyboard* mKeyboard;
+
+	// Variables relating to the ingame camera object
+	float currentDegree;
+	float maxDegree;
+	float minDegree;
 
 };
 
