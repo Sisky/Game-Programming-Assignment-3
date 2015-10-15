@@ -18,7 +18,7 @@ http://www.ogre3d.org/wiki/
 #include "main.h"
 #include <OgreConfigFile.h>
 #include <OgreSceneManager.h>
-#include "OgreRenderWindow.h"
+#include <OgreRenderWindow.h>
 #include <OgreCamera.h>
 #include "OgreViewport.h"
 #include <OgreEntity.h>
